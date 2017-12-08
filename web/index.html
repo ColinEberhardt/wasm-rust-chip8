@@ -1,0 +1,98 @@
+<link href="https://fonts.googleapis.com/css?family=VT323" rel="stylesheet">
+
+<style>
+:root {
+  --terminal-color: #33ff66;
+}
+canvas {
+  image-rendering: -moz-crisp-edges;    
+  image-rendering: -webkit-crisp-edges; 
+  image-rendering: pixelated;           
+}
+.page {
+  width: 512px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.screen {
+  width: 512px;
+  height: 256px;
+  border: 1px solid var(--terminal-color);
+  padding: 5px;
+  margin-bottom: 20px;
+}
+.memory {
+  height: 512px;
+  width: 256px;
+  overflow-y: scroll;
+  padding: 5px;
+}
+.registers {
+  height: 512px;
+  width: 256px;
+  padding: 5px;
+}
+.container {
+  display: flex;
+  flex-direction: row;
+}
+body {
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  line-height: 22px;
+  color: var(--terminal-color);
+  background-color: black;
+}
+h2 {
+  font-size: 50px;
+  text-align: center;
+}
+.pc {
+  background-color: var(--terminal-color);
+  color: black;
+}
+.label {
+  font-size: 30px;
+}
+button, select {
+  font-family: 'VT323', monospace;
+  font-size: 30px;
+  width: 100px;
+  border: 3px solid var(--terminal-color);
+  color: var(--terminal-color);
+  background-color: black;
+  outline: none;
+  margin-bottom: 10px;
+}
+select {
+  width: 200px;
+}
+button:active {
+  color: black;
+  background-color: var(--terminal-color);
+}
+</style>
+
+<div class='page'>
+  <h2>CHIP-8</h2>
+
+  <p>A WebAssembly CHIP-8 emulator written using Rust. Select a ROM and hit 'start'!</p>
+
+  <span class='label'>ROM:</span>
+  <select id='roms'>
+  </select>
+  <button id='run'>Start</button>
+  <button id='step'>Step</button>
+
+  <div class='screen'>
+    <canvas id='canvas' width='64' height='32'
+      style='transform: scale(8); transform-origin: top left'></canvas>
+  </div>
+  <div class='container'>
+    <div class='memory'></div>
+    <div class='registers'></div>
+  </div>
+</div>
+
+<script src='chip8.js'></script>
+<script src='jquery-3.2.1.min.js'></script>

@@ -1,0 +1,3 @@
+#!/bin/sh
+rustc +nightly --target wasm32-unknown-unknown -O --crate-type=cdylib src/lib.rs -o web/chip8.wasm
+
