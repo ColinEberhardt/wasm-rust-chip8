@@ -80,138 +80,129 @@ impl Cpu {
         let kk = (opcode & 0x00FF) as u8;
         let n = (opcode & 0x000F) as u8;
 
+        // break up into nibbles
+        let op_1 = (opcode & 0xF000) >> 12;
+        let op_2 = (opcode & 0x0F00) >> 8;
+        let op_3 = (opcode & 0x00F0) >> 4;
+        let op_4 = opcode & 0x000F;
+
         // increment the program counter
         self.pc += 2;
 
-        match opcode {
+        // println!("{}, {}, {}, {}", op_1, op_2, op_3, op_4);
+
+        match (op_1, op_2, op_3, op_4) {
             // CLS
-            0x00E0 => self.display.cls(),
+            (0, 0, 0xE, 0) => self.display.cls(),
             // RET
-            0x00EE => {
+            (0, 0, 0xE, 0xE) => {
                 self.sp = self.sp - 1;
                 self.pc = self.stack[self.sp as usize];
-            }
+            },
             // JP
-            0x1000 ... 0x1FFF => self.pc = nnn,
+            (0x1, _, _, _) => self.pc = nnn,
             // CALL
-            0x2000 ... 0x2FFF => {
+            (0x2, _, _, _) => {
                 self.stack[self.sp as usize] = self.pc;
                 self.sp = self.sp + 1;
                 self.pc = nnn;
-            }
+            },
             // SE Vx KK
-            0x3000 ... 0x3FFF => self.pc += if vx == kk { 2 } else { 0 },
+            (0x3, _, _, _) => self.pc += if vx == kk { 2 } else { 0 },
             // SNE Vx KK
-            0x4000 ... 0x4FFF => self.pc += if vx != kk { 2 } else { 0 },
+            (0x4, _, _, _) => self.pc += if vx != kk { 2 } else { 0 },
             // SE Vx Vy
-            0x5000 ... 0x5FFF => self.pc += if vx == vy { 2 } else { 0 },
+            (0x5, _, _, _) => self.pc += if vx == vy { 2 } else { 0 },
             // LD Vx
-            0x6000 ... 0x6FFF => self.v[x] = kk,
+            (0x6, _, _, _) => self.v[x] = kk,
             // ADD Vx, byte
-            0x7000 ... 0x7FFF => self.v[x] += kk,
-            0x8000 ... 0x8FFF => {
-                match opcode & 0x00F {
-                    // LD Vx, Vy
-                    0x0 => self.v[x] = self.v[y],
-                    // OR Vx, Vy
-                    0x1 => self.v[x] = self.v[x] | self.v[y],
-                    // AND Vx, Vy
-                    0x2 => self.v[x] = self.v[x] & self.v[y],
-                    // XOR Vx, Vy
-                    0x3 => self.v[x] = self.v[x] ^ self.v[y],
-                    // ADD Vx, Vy
-                    0x4 => {
-                        let res = self.v[x] as u16 + self.v[y] as u16;
-                        self.v[0xF] = if res > 0xFF { 1 } else { 0 };
-                        self.v[x] = (res & 0xFF) as u8;
-                    }
-                    // SUB Vx, Vy
-                    0x5 => {
-                        let res = self.v[x] as i8 - self.v[y] as i8;
-                        self.v[x] = res as u8;
-                        self.v[0xF] = if res < 0 { 1 } else { 0 };
-                    }
-                    // SHR Vx 
-                    0x6 => {
-                        self.v[0xF] = self.v[x] & 0x1;
-                        self.v[x] >>= 1;
-                    }
-                    // SUBN Vx, Vy
-                    0x7 => {
-                        let res = self.v[y] as i8 - self.v[x] as i8;
-                        self.v[x] = res as u8;
-                        self.v[0xF] = if res < 0 { 1 } else { 0 };
-                    }
-                    // SHL Vx
-                    0xE => {
-                        self.v[0xF] = self.v[x] & 0x80;
-                        self.v[x] <<= 1;
-                    }
-                    _ => ()
-                }
+            (0x7, _, _, _) => self.v[x] += kk,
+            // LD Vx, Vy
+            (0x8, _, _, 0x0) => self.v[x] = self.v[y],
+            // OR Vx, Vy
+            (0x8, _, _, 0x1) => self.v[x] = self.v[x] | self.v[y],
+            // AND Vx, Vy
+            (0x8, _, _, 0x2) => self.v[x] = self.v[x] & self.v[y],
+            // XOR Vx, Vy
+            (0x8, _, _, 0x3) => self.v[x] = self.v[x] ^ self.v[y],
+            // ADD Vx, Vy
+            (0x8, _, _, 0x4) => {
+                let res = self.v[x] as u16 + self.v[y] as u16;
+                self.v[0xF] = if res > 0xFF { 1 } else { 0 };
+                self.v[x] = (res & 0xFF) as u8;
+            }
+            // SUB Vx, Vy
+            (0x8, _, _, 0x5) => {
+                let res = self.v[x] as i8 - self.v[y] as i8;
+                self.v[x] = res as u8;
+                self.v[0xF] = if res < 0 { 1 } else { 0 };
+            }
+            // SHR Vx 
+            (0x8, _, _, 0x6) => {
+                self.v[0xF] = self.v[x] & 0x1;
+                self.v[x] >>= 1;
+            }
+            // SUBN Vx, Vy
+            (0x8, _, _, 0x7) => {
+                let res = self.v[y] as i8 - self.v[x] as i8;
+                self.v[x] = res as u8;
+                self.v[0xF] = if res < 0 { 1 } else { 0 };
+            },
+            // SHL Vx
+            (0x8, _, _, 0xE) => {
+                self.v[0xF] = self.v[x] & 0x80;
+                self.v[x] <<= 1;
             }
             // SNE Vx Vy
-            0x9000 ... 0x9FFF => self.pc += if vx != vy { 2 } else { 0 },
+            (0x9, _, _, _) => self.pc += if vx != vy { 2 } else { 0 },
             // LD I
-            0xA000 ... 0xAFFF => self.i = nnn,
+            (0xA, _, _, _) => self.i = nnn,
             // JP V0
-            0xB000 ... 0xBFFF => self.pc = nnn + self.v[0] as u16,
+            (0xB, _, _, _) => self.pc = nnn + self.v[0] as u16,
             // RND
-            0xC000 ... 0xCFFF => self.v[x] = self.rand.random() as u8 & kk,
+            (0xC, _, _, _) => self.v[x] = self.rand.random() as u8 & kk,
             // DRW
-            0xD000 ... 0xDFFF => {
+            (0xD, _, _, _) => {
                 let collision = self.display.draw(vx as usize, vy as usize,
                     &self.memory[self.i as usize .. (self.i + n as u16) as usize]);
                 self.v[0xF] = if collision { 1 } else { 0 };
             }
-            0xE000 ... 0xEFFF => {
-                match opcode & 0x00FF {
-                    // SKP Vx
-                    0x9E => self.pc += if self.keypad.is_key_down(vx) { 2 } else { 0 },
-                    // SKNP Vx
-                    0xA1 => self.pc += if self.keypad.is_key_down(vx) { 0 } else { 2 },
-                    _ => ()
-                }
-            }
-            0xF000 ... 0xFFFF => {
-                match opcode & 0x00FF {
-                    // LD Vx, DT
-                    0x07 => self.v[x] = self.dt,
-                    // LD Vx, K
-                    0x0A => {
-                        self.pc -= 2;
-                        for (i, key) in self.keypad.keys.iter().enumerate() {
-                            if *key == true {
-                                self.v[x] = i as u8;
-                                self.pc +=2;
-                            }
-                        }
+            // SKP Vx
+            (0xE, _, 0x9, 0xE) => self.pc += if self.keypad.is_key_down(vx) { 2 } else { 0 },
+            // SKNP Vx
+            (0xE, _, 0xA, 0x1) => self.pc += if self.keypad.is_key_down(vx) { 0 } else { 2 },
+            // LD Vx, DT
+            (0xF, _, 0x0, 0x7) => self.v[x] = self.dt,
+            // LD Vx, K
+            (0xF, _, 0x0, 0xA) => {
+                self.pc -= 2;
+                for (i, key) in self.keypad.keys.iter().enumerate() {
+                    if *key == true {
+                        self.v[x] = i as u8;
+                        self.pc +=2;
                     }
-                    // LD DT, Vx
-                    0x15 => self.dt = self.v[x],
-                    // ADD I, Vx
-                    0x1E => self.i = self.i + self.v[x] as u16,
-                    // LD F, Vx
-                    0x29 => self.i = vx as u16 * 5,
-                    // LD B, Vx
-                    0x33 => {
-                        self.memory[self.i as usize] = vx / 100;
-                        self.memory[self.i as usize + 1] = (vx / 10) % 10;
-                        self.memory[self.i as usize + 2] = (vx % 100) % 10;
-                    },
-                    // LD [I], Vx
-                    0x55 => self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]
-                                .copy_from_slice(&self.v[0..(x as usize + 1)]),
-                    // LD Vx, [I]          
-                    0x65 =>  self.v[0..(x as usize + 1)]
-                                .copy_from_slice(&self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]),
-                    _ => ()
                 }
-            }
-            _ => ()
+            },
+            // LD DT, Vx
+            (0xF, _, 0x1, 0x5) => self.dt = self.v[x],
+            // ADD I, Vx
+            (0xF, _, 0x1, 0xE) => self.i = self.i + self.v[x] as u16,
+            // LD F, Vx
+            (0xF, _, 0x2, 0x9) => self.i = vx as u16 * 5,
+            // LD B, Vx
+            (0xF, _, 0x3, 0x3) => {
+                self.memory[self.i as usize] = vx / 100;
+                self.memory[self.i as usize + 1] = (vx / 10) % 10;
+                self.memory[self.i as usize + 2] = (vx % 100) % 10;
+            },
+            // LD [I], Vx
+            (0xF, _, 0x5, 0x5) => self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]
+                        .copy_from_slice(&self.v[0..(x as usize + 1)]),
+            // LD Vx, [I]          
+            (0xF, _, 0x6, 0x5) =>  self.v[0..(x as usize + 1)]
+                        .copy_from_slice(&self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]),
+            (_, _, _, _) => ()
         }
-
-        
     }
 }
 

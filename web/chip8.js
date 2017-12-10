@@ -148,16 +148,14 @@ const run = async () => {
   };
 
   const dumpRegisters = () => {
+    $("#r1").empty();
     const vValues = Array(16);
     for (let i = 0; i < vMemory.length; i++) {
-      vValues[i] = vMemory[i];
+      $("#r1").append(`<div>V${i}: ${vMemory[i]}</div>`);
     }
-    const registers = {
-      pc: exports.get_register_pc(),
-      i: exports.get_register_i(),
-      v: vValues
-    };
-    console.log(JSON.stringify(registers, null, 2));
+    $("#r2").empty();
+    $("#r2").append(`<div>PC: ${exports.get_register_pc()}</div>`);
+    $("#r2").append(`<div>I: ${exports.get_register_i()}</div>`);
   };
 
   const dumpMemory = () => {
@@ -165,11 +163,9 @@ const run = async () => {
     let address = 0x200;
     while (address < 4096) {
       const clazz = `addr_${address}`;
-      const opcode =
-        "0x" + hex(programMemory[address]) + hex(programMemory[address + 1]);
       const haddress = "0x" + hex(address, 4);
       $(".memory").append(
-        `<div class='${clazz}'>${haddress} - ${opcode} : ${dissassemble(
+        `<div class='${clazz}'>${haddress} - ${dissassemble(
           programMemory,
           address
         )}</div>`
@@ -193,7 +189,7 @@ const run = async () => {
   };
 
   const updateUI = () => {
-    // dumpRegisters();
+    dumpRegisters();
     updateDisplay();
     updateProgramCounter();
   };
