@@ -64,6 +64,9 @@ impl Cpu {
     pub fn execute_cycle(&mut self) {
         let opcode: u16 = read_word(self.memory, self.pc);
         self.process_opcode(opcode);
+    }
+
+    pub fn decrement_timers(&mut self) {
         if self.dt > 0 {
             self.dt -= 1;
         }

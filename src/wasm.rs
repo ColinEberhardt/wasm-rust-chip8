@@ -87,3 +87,10 @@ pub fn execute_cycle() {
         CPU.execute_cycle();
     }
 }
+
+#[no_mangle]
+pub fn decrement_timers() {
+    unsafe {
+        CPU.decrement_timers();
+    }
+}

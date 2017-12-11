@@ -227,6 +227,7 @@ const run = async () => {
       for (var i = 0; i < 10; i++) {
         exports.execute_cycle();
       }
+      exports.decrement_timers();
     }
     updateUI();
     window.requestAnimationFrame(runloop);
@@ -252,8 +253,8 @@ const run = async () => {
     exports.key_up(translateKeys[event.keyCode]);
   });
 
-  $("#roms")[0].value = "BLINKY";
-  loadRom("BLINKY");
+  $("#roms")[0].value = "WIPEOFF";
+  loadRom("WIPEOFF");
 };
 
 run();
