@@ -4,4 +4,4 @@ A CHIP-8 emulator written in Rust and compiled to WebAssembly. Just for the fun 
 
 ## Building
 
-This project uses the relatively new `wasm32-unknown-unknown` target, which can be enabled as per the [setup instructions](https://www.hellorust.com/setup/wasm-target/). Once installed simply run the `build` scripte.
+This project uses the relatively new `wasm32-unknown-unknown` target, which can be enabled as per the [setup instructions](https://www.hellorust.com/setup/wasm-target/). Once installed simply run the `build` script.
