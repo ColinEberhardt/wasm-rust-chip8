@@ -221,6 +221,20 @@ const run = async () => {
     updateUI();
   });
 
+  // Reset the CPU (ie game ended but you don't want to switch ROMs
+  document.getElementById("reset").addEventListener("click", () => {
+    exports.reset();
+
+    // Find the last selected ROM, and load it. Before that, make sure that the emulator is stopped.
+    let rom = document.getElementById("roms");
+    let value = rom.options[rom.selectedIndex].value;
+
+    if($("#run").text() === "Stop") {
+      $("#run").click();
+    }
+    loadRom(value);
+  });
+
   let running = false;
   const runloop = () => {
     if (running) {

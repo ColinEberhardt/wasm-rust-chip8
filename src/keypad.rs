@@ -3,7 +3,7 @@ pub struct Keypad {
 }
 
 impl Keypad {
-  pub fn new() -> Keypad {
+  pub const fn new() -> Keypad {
     Keypad {
         keys: [false; 16]
     }

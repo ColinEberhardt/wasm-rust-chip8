@@ -6,7 +6,7 @@ pub struct Display {
 }
 
 impl Display {
-  pub fn new() -> Display {
+  pub const fn new() -> Display {
     Display {
         memory: [0; 2048]
     }

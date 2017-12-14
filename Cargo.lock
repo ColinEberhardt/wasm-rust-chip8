@@ -1,4 +1,4 @@
 [[package]]
-name = "hello-rust"
+name = "wasm-rust-chip8"
 version = "0.1.0"
 

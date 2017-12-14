@@ -1,3 +1,5 @@
+#![feature(const_fn)]
+
 pub mod cpu;
 pub mod wasm;
 pub mod display;

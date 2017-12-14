@@ -22,7 +22,7 @@ impl ComplementaryMultiplyWithCarryGen {
         }
 
         ComplementaryMultiplyWithCarryGen {
-            q: q,
+            q,
             c: 362436,
             i: 4095,
         }

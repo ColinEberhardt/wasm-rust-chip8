@@ -1,5 +1,7 @@
 [package]
-name = "hello-rust"
+name = "wasm-rust-chip8"
 version = "0.1.0"
 authors = ["Colin Eberhardt <colin.eberhardt@gmail.com>"]
 
+[lib]
+crate-type = ["cdylib"]

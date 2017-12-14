@@ -3,27 +3,7 @@ use display::Display;
 use keypad::Keypad;
 use rand::{ComplementaryMultiplyWithCarryGen, CMWC_CYCLE};
 
-// TODO: change to a constructor
-static mut CPU: Cpu = Cpu {
-    i: 0,
-    pc: 0,
-    dt: 0,
-    memory: [0; 4096],
-    v: [0; 16],
-    display: Display {
-        memory: [0; 2048]
-    },
-    keypad: Keypad {
-        keys: [false; 16]
-    },
-    stack: [0; 16],
-    sp: 0,
-    rand: ComplementaryMultiplyWithCarryGen {
-        q: [0; CMWC_CYCLE],
-        c: 0,
-        i: 0
-    }
-};
+static mut CPU: Cpu = Cpu::new_const();
 
 #[no_mangle]
 pub fn reset() {

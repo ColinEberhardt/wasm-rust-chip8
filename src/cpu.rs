@@ -1,6 +1,6 @@
 use keypad::Keypad;
 use display::{Display, FONT_SET};
-use rand::ComplementaryMultiplyWithCarryGen;
+use rand::{ComplementaryMultiplyWithCarryGen, CMWC_CYCLE};
 
 pub struct Cpu {
     // index register
@@ -22,7 +22,7 @@ pub struct Cpu {
     // delay timer
     pub dt: u8,
     // random number generator. Bit yucky
-    pub rand: ComplementaryMultiplyWithCarryGen
+    pub rand: ComplementaryMultiplyWithCarryGen,
 }
 
 fn read_word(memory: [u8; 4096], index: u16) -> u16 {
@@ -42,7 +42,26 @@ impl Cpu {
             stack: [0; 16],
             sp: 0,
             dt: 0,
-            rand: ComplementaryMultiplyWithCarryGen::new(1)
+            rand: ComplementaryMultiplyWithCarryGen::new(1), // This function can't be made const.
+        }
+    }
+
+    pub const fn new_const() -> Cpu {
+        Cpu {
+            i: 0,
+            pc: 0,
+            dt: 0,
+            memory: [0; 4096],
+            v: [0; 16],
+            display: Display::new(),
+            keypad: Keypad::new(),
+            stack: [0; 16],
+            sp: 0,
+            rand: ComplementaryMultiplyWithCarryGen {
+                q: [0; CMWC_CYCLE],
+                c: 0,
+                i: 0
+            }
         }
     }
 
@@ -101,7 +120,7 @@ impl Cpu {
             (0, 0, 0xE, 0xE) => {
                 self.sp = self.sp - 1;
                 self.pc = self.stack[self.sp as usize];
-            },
+            }
             // JP
             (0x1, _, _, _) => self.pc = nnn,
             // CALL
@@ -109,7 +128,7 @@ impl Cpu {
                 self.stack[self.sp as usize] = self.pc;
                 self.sp = self.sp + 1;
                 self.pc = nnn;
-            },
+            }
             // SE Vx KK
             (0x3, _, _, _) => self.pc += if vx == kk { 2 } else { 0 },
             // SNE Vx KK
@@ -150,7 +169,7 @@ impl Cpu {
                 let res = self.v[y] as i8 - self.v[x] as i8;
                 self.v[x] = res as u8;
                 self.v[0xF] = if res < 0 { 1 } else { 0 };
-            },
+            }
             // SHL Vx
             (0x8, _, _, 0xE) => {
                 self.v[0xF] = self.v[x] & 0x80;
@@ -167,7 +186,7 @@ impl Cpu {
             // DRW
             (0xD, _, _, _) => {
                 let collision = self.display.draw(vx as usize, vy as usize,
-                    &self.memory[self.i as usize .. (self.i + n as u16) as usize]);
+                                                  &self.memory[self.i as usize..(self.i + n as u16) as usize]);
                 self.v[0xF] = if collision { 1 } else { 0 };
             }
             // SKP Vx
@@ -182,10 +201,10 @@ impl Cpu {
                 for (i, key) in self.keypad.keys.iter().enumerate() {
                     if *key == true {
                         self.v[x] = i as u8;
-                        self.pc +=2;
+                        self.pc += 2;
                     }
                 }
-            },
+            }
             // LD DT, Vx
             (0xF, _, 0x1, 0x5) => self.dt = self.v[x],
             // ADD I, Vx
@@ -197,13 +216,13 @@ impl Cpu {
                 self.memory[self.i as usize] = vx / 100;
                 self.memory[self.i as usize + 1] = (vx / 10) % 10;
                 self.memory[self.i as usize + 2] = (vx % 100) % 10;
-            },
+            }
             // LD [I], Vx
             (0xF, _, 0x5, 0x5) => self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]
-                        .copy_from_slice(&self.v[0..(x as usize + 1)]),
+                .copy_from_slice(&self.v[0..(x as usize + 1)]),
             // LD Vx, [I]          
-            (0xF, _, 0x6, 0x5) =>  self.v[0..(x as usize + 1)]
-                        .copy_from_slice(&self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]),
+            (0xF, _, 0x6, 0x5) => self.v[0..(x as usize + 1)]
+                .copy_from_slice(&self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]),
             (_, _, _, _) => ()
         }
     }
@@ -238,7 +257,7 @@ mod tests {
     fn opcode_se_vx_byte() {
         let mut cpu = Cpu::new();
         cpu.v[1] = 0xFE;
-        
+
         // vx == kk
         cpu.process_opcode(0x31FE);
         assert_eq!(cpu.pc, 4, "the stack pointer skips");
@@ -252,7 +271,7 @@ mod tests {
     fn opcode_sne_vx_byte() {
         let mut cpu = Cpu::new();
         cpu.v[1] = 0xFE;
-        
+
         // vx == kk
         cpu.process_opcode(0x41FE);
         assert_eq!(cpu.pc, 2, "the stack pointer is incremented");
@@ -268,7 +287,7 @@ mod tests {
         cpu.v[1] = 1;
         cpu.v[2] = 3;
         cpu.v[3] = 3;
-        
+
         // vx == vy
         cpu.process_opcode(0x5230);
         assert_eq!(cpu.pc, 4, "the stack pointer skips");
@@ -284,7 +303,7 @@ mod tests {
         cpu.v[1] = 1;
         cpu.v[2] = 3;
         cpu.v[3] = 3;
-        
+
         // vx == vy
         cpu.process_opcode(0x9230);
         assert_eq!(cpu.pc, 2, "the stack pointer is incremented");
@@ -298,7 +317,7 @@ mod tests {
     fn opcode_add_vx_kkk() {
         let mut cpu = Cpu::new();
         cpu.v[1] = 3;
-        
+
         cpu.process_opcode(0x7101);
         assert_eq!(cpu.v[1], 4, "Vx was incremented by one");
     }
@@ -308,7 +327,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.v[1] = 3;
         cpu.v[0] = 0;
-        
+
         cpu.process_opcode(0x8010);
         assert_eq!(cpu.v[0], 3, "Vx was loaded with vy");
     }
@@ -318,7 +337,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.v[2] = 0b01101100;
         cpu.v[3] = 0b11001110;
-        
+
         cpu.process_opcode(0x8231);
         assert_eq!(cpu.v[2], 0b11101110, "Vx was loaded with vx OR vy");
     }
@@ -328,7 +347,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.v[2] = 0b01101100;
         cpu.v[3] = 0b11001110;
-        
+
         cpu.process_opcode(0x8232);
         assert_eq!(cpu.v[2], 0b01001100, "Vx was loaded with vx AND vy");
     }
@@ -338,7 +357,7 @@ mod tests {
         let mut cpu = Cpu::new();
         cpu.v[2] = 0b01101100;
         cpu.v[3] = 0b11001110;
-        
+
         cpu.process_opcode(0x8233);
         assert_eq!(cpu.v[2], 0b10100010, "Vx was loaded with vx XOR vy");
     }
@@ -349,7 +368,7 @@ mod tests {
         cpu.v[1] = 10;
         cpu.v[2] = 100;
         cpu.v[3] = 250;
-        
+
         cpu.process_opcode(0x8124);
         assert_eq!(cpu.v[1], 110, "Vx was loaded with vx + vy");
         assert_eq!(cpu.v[0xF], 0, "no overflow occured");
@@ -367,7 +386,7 @@ mod tests {
         cpu.v[2] = 3;
         cpu.v[3] = 2;
         cpu.i = 0x300;
-        
+
         // load v0 - v2 into memory at i
         cpu.process_opcode(0xF255);
         assert_eq!(cpu.memory[cpu.i as usize], 5, "V0 was loaded into memory at i");
@@ -375,20 +394,20 @@ mod tests {
         assert_eq!(cpu.memory[cpu.i as usize + 2], 3, "V2 was loaded into memory at i + 2");
         assert_eq!(cpu.memory[cpu.i as usize + 3], 0, "i + 3 was not loaded");
     }
-    
+
     #[test]
     fn opcode_ld_b_vx() {
         let mut cpu = Cpu::new();
         cpu.i = 0x300;
         cpu.v[2] = 234;
-        
+
         // load v0 - v2 from memory at i
         cpu.process_opcode(0xF233);
         assert_eq!(cpu.memory[cpu.i as usize], 2, "hundreds");
         assert_eq!(cpu.memory[cpu.i as usize + 1], 3, "tens");
         assert_eq!(cpu.memory[cpu.i as usize + 2], 4, "digits");
     }
-    
+
     #[test]
     fn opcode_ld_vx_i() {
         let mut cpu = Cpu::new();
@@ -397,8 +416,8 @@ mod tests {
         cpu.memory[cpu.i as usize + 1] = 4;
         cpu.memory[cpu.i as usize + 2] = 3;
         cpu.memory[cpu.i as usize + 3] = 2;
-        
-        
+
+
         // load v0 - v2 from memory at i
         cpu.process_opcode(0xF265);
         assert_eq!(cpu.v[0], 5, "V0 was loaded from memory at i");
@@ -414,14 +433,14 @@ mod tests {
         cpu.pc = addr;
 
         // jump to 0x0ABC
-        cpu.process_opcode(0x2ABC); 
+        cpu.process_opcode(0x2ABC);
         // return
         cpu.process_opcode(0x00EE);
 
         assert_eq!(cpu.pc, 0x25, "the program counter is updated to the new address");
         assert_eq!(cpu.sp, 0, "the stack pointer is decremented");
     }
-    
+
 
     #[test]
     fn opcode_ld_i_addr() {
@@ -448,5 +467,4 @@ mod tests {
         assert_eq!(cpu.i, 0x0FAF, "the 'i' register is updated");
         assert_eq!(cpu.pc, 2, "the program counter is advanced two bytes");
     }
-
 }
