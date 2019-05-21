@@ -130,15 +130,21 @@ impl Cpu {
             (0x8, _, _, 0x3) => self.v[x] = self.v[x] ^ self.v[y],
             // ADD Vx, Vy
             (0x8, _, _, 0x4) => {
-                let res = self.v[x] as u16 + self.v[y] as u16;
-                self.v[0xF] = if res > 0xFF { 1 } else { 0 };
-                self.v[x] = (res & 0xFF) as u8;
+                let (res, overflow) = self.v[x].overflowing_add(self.v[y]);
+                match overflow {
+                    true => self.v[0xF] = 1,
+                    false => self.v[0xF] = 0,
+                }
+                self.v[x] = res;
             }
             // SUB Vx, Vy
             (0x8, _, _, 0x5) => {
-                let res = self.v[x] as i8 - self.v[y] as i8;
-                self.v[x] = res as u8;
-                self.v[0xF] = if res < 0 { 1 } else { 0 };
+                let (res, overflow) = self.v[x].overflowing_sub(self.v[y]);
+                match overflow {
+                    true => self.v[0xF] = 0,
+                    false => self.v[0xF] = 1,
+                }
+                self.v[x] = res;
             }
             // SHR Vx 
             (0x8, _, _, 0x6) => {
@@ -147,9 +153,12 @@ impl Cpu {
             }
             // SUBN Vx, Vy
             (0x8, _, _, 0x7) => {
-                let res = self.v[y] as i8 - self.v[x] as i8;
-                self.v[x] = res as u8;
-                self.v[0xF] = if res < 0 { 1 } else { 0 };
+                let (res, overflow) = self.v[y].overflowing_sub(self.v[x]);
+                match overflow {
+                    true => self.v[0xF] = 0,
+                    false => self.v[0xF] = 1,
+                }
+                self.v[x] = res;
             },
             // SHL Vx
             (0x8, _, _, 0xE) => {
