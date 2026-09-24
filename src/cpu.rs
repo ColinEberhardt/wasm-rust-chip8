@@ -21,6 +21,8 @@ pub struct Cpu {
     pub sp: u8,
     // delay timer
     pub dt: u8,
+    // the key FX0A saw go down, until it comes up again
+    pub key_wait: Option<u8>,
     // random number generator. Bit yucky
     pub rand: ComplementaryMultiplyWithCarryGen
 }
@@ -42,6 +44,7 @@ impl Cpu {
             stack: [0; 16],
             sp: 0,
             dt: 0,
+            key_wait: None,
             rand: ComplementaryMultiplyWithCarryGen::new(1)
         }
     }
@@ -54,6 +57,7 @@ impl Cpu {
         self.stack = [0; 16];
         self.sp = 0;
         self.dt = 0;
+        self.key_wait = None;
         self.rand = ComplementaryMultiplyWithCarryGen::new(1);
         self.display.cls();
         for i in 0..80 {
@@ -129,41 +133,37 @@ impl Cpu {
             // XOR Vx, Vy
             (0x8, _, _, 0x3) => self.v[x] = self.v[x] ^ self.v[y],
             // ADD Vx, Vy
+            // The result goes in before the flag, so that when Vx is VF the
+            // flag is what is left, as on the original hardware.
             (0x8, _, _, 0x4) => {
                 let (res, overflow) = self.v[x].overflowing_add(self.v[y]);
-                match overflow {
-                    true => self.v[0xF] = 1,
-                    false => self.v[0xF] = 0,
-                }
                 self.v[x] = res;
+                self.v[0xF] = if overflow { 1 } else { 0 };
             }
             // SUB Vx, Vy
             (0x8, _, _, 0x5) => {
                 let (res, overflow) = self.v[x].overflowing_sub(self.v[y]);
-                match overflow {
-                    true => self.v[0xF] = 0,
-                    false => self.v[0xF] = 1,
-                }
                 self.v[x] = res;
+                self.v[0xF] = if overflow { 0 } else { 1 };
             }
             // SHR Vx 
             (0x8, _, _, 0x6) => {
-                self.v[0xF] = self.v[x] & 0x1;
+                let flag = self.v[x] & 0x1;
                 self.v[x] >>= 1;
+                self.v[0xF] = flag;
             }
             // SUBN Vx, Vy
             (0x8, _, _, 0x7) => {
                 let (res, overflow) = self.v[y].overflowing_sub(self.v[x]);
-                match overflow {
-                    true => self.v[0xF] = 0,
-                    false => self.v[0xF] = 1,
-                }
                 self.v[x] = res;
+                self.v[0xF] = if overflow { 0 } else { 1 };
             },
             // SHL Vx
+            // The flag is the bit shifted out, 1 or 0, not the bit in place.
             (0x8, _, _, 0xE) => {
-                self.v[0xF] = self.v[x] & 0x80;
+                let flag = (self.v[x] & 0x80) >> 7;
                 self.v[x] <<= 1;
+                self.v[0xF] = flag;
             }
             // SNE Vx Vy
             (0x9, _, _, _) => self.pc += if vx != vy { 2 } else { 0 },
@@ -186,12 +186,26 @@ impl Cpu {
             // LD Vx, DT
             (0xF, _, 0x0, 0x7) => self.v[x] = self.dt,
             // LD Vx, K
+            // Waits for a key to be pressed and then released, which is what
+            // the original hardware did. The key seen going down is remembered
+            // and the instruction runs again until that key has come up.
             (0xF, _, 0x0, 0xA) => {
                 self.pc -= 2;
-                for (i, key) in self.keypad.keys.iter().enumerate() {
-                    if *key == true {
-                        self.v[x] = i as u8;
-                        self.pc +=2;
+                match self.key_wait {
+                    None => {
+                        for (i, key) in self.keypad.keys.iter().enumerate() {
+                            if *key {
+                                self.key_wait = Some(i as u8);
+                                break;
+                            }
+                        }
+                    }
+                    Some(k) => {
+                        if !self.keypad.keys[k as usize] {
+                            self.v[x] = k;
+                            self.key_wait = None;
+                            self.pc += 2;
+                        }
                     }
                 }
             },
@@ -385,6 +399,58 @@ mod tests {
         assert_eq!(cpu.memory[cpu.i as usize + 3], 0, "i + 3 was not loaded");
     }
     
+    #[test]
+    fn opcode_arithmetic_leaves_the_flag_when_vx_is_vf() {
+        let mut cpu = Cpu::new();
+        cpu.v[0xF] = 200;
+        cpu.v[1] = 100;
+        cpu.process_opcode(0x8F14);
+        assert_eq!(cpu.v[0xF], 1, "VF holds the carry, not the sum");
+
+        cpu.v[0xF] = 5;
+        cpu.v[1] = 10;
+        cpu.process_opcode(0x8F15);
+        assert_eq!(cpu.v[0xF], 0, "VF holds the borrow flag, not the difference");
+
+        cpu.v[0xF] = 10;
+        cpu.v[1] = 5;
+        cpu.process_opcode(0x8F17);
+        assert_eq!(cpu.v[0xF], 0, "VF holds the borrow flag, not the difference");
+
+        cpu.v[0xF] = 3;
+        cpu.process_opcode(0x8F06);
+        assert_eq!(cpu.v[0xF], 1, "VF holds the bit shifted out, not the shifted value");
+    }
+
+    #[test]
+    fn opcode_shl_vx_flag_is_one_or_zero() {
+        let mut cpu = Cpu::new();
+        cpu.v[1] = 0x81;
+        cpu.process_opcode(0x810E);
+        assert_eq!(cpu.v[1], 0x02, "Vx is shifted left");
+        assert_eq!(cpu.v[0xF], 1, "the flag is the bit shifted out");
+        cpu.v[1] = 0x41;
+        cpu.process_opcode(0x810E);
+        assert_eq!(cpu.v[0xF], 0, "the flag is zero when nothing was shifted out");
+    }
+
+    #[test]
+    fn opcode_ld_vx_k_waits_for_the_key_to_be_released() {
+        let mut cpu = Cpu::new();
+        // process_opcode steps the counter on, so staying put means the
+        // instruction will run again.
+        cpu.pc = 0x200;
+        cpu.process_opcode(0xF10A);
+        assert_eq!(cpu.pc, 0x200, "with no key down the instruction runs again");
+        cpu.keypad.key_down(5);
+        cpu.process_opcode(0xF10A);
+        assert_eq!(cpu.pc, 0x200, "a key going down is not enough");
+        cpu.keypad.key_up(5);
+        cpu.process_opcode(0xF10A);
+        assert_eq!(cpu.pc, 0x202, "the key coming up lets the program move on");
+        assert_eq!(cpu.v[1], 5, "and the register holds that key");
+    }
+
     #[test]
     fn opcode_ld_b_vx() {
         let mut cpu = Cpu::new();

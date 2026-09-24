@@ -8,6 +8,7 @@ static mut CPU: Cpu = Cpu {
     i: 0,
     pc: 0,
     dt: 0,
+    key_wait: None,
     memory: [0; 4096],
     v: [0; 16],
     display: Display {
